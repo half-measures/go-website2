@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Go Wiki Home</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 2em; background: #f4f4f4; }
+        h1, h2 { color: #333; }
+        ul { list-style-type: none; padding-left: 0; }
+        li { background: #fff; border: 1px solid #ddd; padding: 10px; margin-bottom: 5px; border-radius: 4px; }
+        li a { text-decoration: none; color: #007bff; font-weight: 500; }
+        button { font-size: 1.1em; padding: 0.5em 1em; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #218838; }
+    </style>
+</head>
+<body>
+    <h1>Welcome to your Go-Powered Site!</h1>
+    <p>This homepage lists all the pages you've created in the <code>pages/</code> directory.</p>
+
+    <h2>Your Pages</h2>
+    <ul>
+        {{if .}}
+            {{range .}}
+                <li><a href="/page/{{.}}">{{.}}</a></li>
+            {{end}}
+        {{else}}
+            <li>No pages created yet. Click the button to start!</li>
+        {{end}}
+    </ul>
+
+    <hr>
+    <button onclick="createNewPage()">Create a New Page</button>
+
+    <script>
+        // This is the "quick and easy" frontend part you asked for.
+        // It uses the browser's built-in `prompt()` box.
+        async function createNewPage() {
+            let pageName = prompt("Please enter a name for your new page:", "My New Page");
+            
+            // User cancelled or entered nothing
+            if (pageName === null || pageName.trim() === "") {
+                return; 
+            }
+
+            try {
+                // Send the name to our /create endpoint as JSON
+                const response = await fetch('/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: pageName }),
+                });
+
+                if (response.ok) {
+                    // Our server responds with a redirect.
+                    // We can just follow it by reloading the page to the new URL.
+                    window.location.href = response.url;
+                } else {
+                    // Show an error if something went wrong
+                    alert("Error creating page: " + await response.text());
+                }
+            } catch (err) {
+                console.error('Create page error:', err);
+                alert('A network error occurred. Check the console.');
+            }
+        }
+    </script>
+</body>
+</html>
