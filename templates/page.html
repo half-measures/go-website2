@@ -12,9 +12,50 @@
         <p>{{.Body}}</p>
     </div>
 
+    {{if .YouTubeEmbed}}
+        {{range .YouTubeEmbed}}
+            <div class="youtube-embed">
+                <iframe width="560" height="315" src="{{.}}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+        {{end}}
+    {{end}}
+
     <hr>
 
+    <button onclick="addYouTubeVideo('{{.Title}}')">Add/Update YouTube Video</button>
     <a href="/" class="home-link">[Back to Home]</a>
+
+    <script>
+        async function addYouTubeVideo(slug) {
+            const url = prompt("Please enter the full YouTube video URL:");
+
+            // User cancelled or entered nothing
+            if (url === null || url.trim() === "") {
+                return;
+            }
+
+            try {
+                // The API endpoint is expecting a JSON body
+                const response = await fetch(`/api/page/${slug}/save-youtube`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ youtube_url: url }),
+                });
+
+                if (response.ok) {
+                    // It worked! Reload the page to see the new video.
+                    alert("Video link saved!");
+                    window.location.reload();
+                } else {
+                    // Show an error if something went wrong
+                    alert("Error saving link: " + await response.text());
+                }
+            } catch (err) {
+                console.error('Save link error:', err);
+                alert('A network error occurred. Check the console.');
+            }
+        }
+    </script>
 
 <footer class="minimal-footer">
     <p class="tagline">Because sometimes the trailer is better than the movie.</p>
