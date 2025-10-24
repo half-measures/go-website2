@@ -11,7 +11,7 @@
     <div class="content">
         <p>{{.Body}}</p>
     </div>
-
+<div style="text-align: center;">
     {{if .YouTubeEmbed}}
         {{range .YouTubeEmbed}}
             <div class="youtube-embed">
@@ -19,7 +19,7 @@
             </div>
         {{end}}
     {{end}}
-
+        </div>
     <hr>
 
     <button onclick="addYouTubeVideo('{{.Title}}')">Add/Update YouTube Video</button>
