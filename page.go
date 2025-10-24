@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// createPageHandler handles the POST request to create a new page
+// createPageHandler handles the POST request to create a new page for the pages folder
 func createPageHandler(w http.ResponseWriter, r *http.Request) {
 
 	// We only accept POST requests here
@@ -32,7 +32,7 @@ func createPageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := charchecker(reqBody.Name); err != nil {
-		http.Error(w, "Bad naming found, try again. Cannot use symbols, try words only", http.StatusBadRequest)
+		http.Error(w, "Bad name found, try again. Cannot use symbols, try words only.", http.StatusBadRequest)
 		return
 	}
 

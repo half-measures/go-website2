@@ -13,8 +13,15 @@
     </div>
 
     <hr>
+
     <a href="/" class="home-link">[Back to Home]</a>
 
-    {{template "footer.html" .}}
+<footer class="minimal-footer">
+    <p class="tagline">Because sometimes the trailer is better than the movie.</p>
+    <p class="copyright">
+        &copy; {{.Year}} TH |
+        <a href="https://www.youtube.com/" target="_blank" aria-label="Find us on YouTube">YT ▶️</a>
+    </p>
+</footer>
 </body>
 </html>
