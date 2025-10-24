@@ -101,17 +101,23 @@ func pageViewHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Read the optional YouTube link file
 	youtubeFilename := filepath.Join("pages", safeSlug+".youtube.txt")
-	youtubeURL, err := os.ReadFile(youtubeFilename)
-	var embedURL string
+	youtubeURLs, err := os.ReadFile(youtubeFilename)
+	var embedURLs []string
 	if err == nil { // File exists
-		embedURL = processYouTubeURL(string(youtubeURL))
+		// Split the file content by newline to get individual URLs
+		urls := strings.Split(string(youtubeURLs), "\n")
+		for _, url := range urls {
+			if url != "" { // Ignore empty lines
+				embedURLs = append(embedURLs, processYouTubeURL(url))
+			}
+		}
 	}
 
 	// 2. Create a Page struct with the data
 	pageData := &Page{
 		Title:        safeSlug,
 		Body:         string(body),
-		YouTubeEmbed: embedURL, // Will be empty if no link is found
+		YouTubeEmbed: embedURLs, // Will be nil if no links are found
 		Year:         time.Now().Year(),
 	}
 

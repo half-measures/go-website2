@@ -17,7 +17,7 @@ type Page struct {
 	Title        string
 	Body         string // The content of the page
 	Foot         string //unused
-	YouTubeEmbed string
+	YouTubeEmbed []string
 	Head         string
 	Year         int
 }
@@ -121,11 +121,20 @@ func youtubeSaveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 5. Save the URL to a file
+	// 5. Append the URL to the file, creating it if it doesn't exist.
 	filename := filepath.Join("pages", slug+".youtube.txt")
-	err := os.WriteFile(filename, []byte(reqBody.URL), 0644)
+	// Open the file in append mode, with create-if-not-exist flag
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Printf("Error writing YouTube link file: %v", err)
+		log.Printf("Error opening YouTube link file: %v", err)
+		http.Error(w, "Could not save link", http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	// Write the new URL on its own line
+	if _, err := f.WriteString(reqBody.URL + "\n"); err != nil {
+		log.Printf("Error writing to YouTube link file: %v", err)
 		http.Error(w, "Could not save link", http.StatusInternalServerError)
 		return
 	}
