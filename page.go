@@ -63,11 +63,7 @@ func createPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 4. Create the new file with default content
-	defaultBody := "This is the new page for **" + reqBody.Name + `**
-
-Paste a YouTube link anywhere in this page to embed it.
-
-For example: https://www.youtube.com/watch?v=dQw4w9WgXcQ`
+	defaultBody := "This is the new page for **" + reqBody.Name + "**"
 	err := os.WriteFile(filename, []byte(defaultBody), 0644) // 0644 = rw-r--r--
 	if err != nil {
 		log.Printf("Error writing new page file: %v", err)
@@ -103,14 +99,18 @@ func pageViewHandler(w http.ResponseWriter, r *http.Request) {
 
 	// --- Render the page ---
 
-	// 1. Process the page body for a YouTube link
-	rawBody := string(body)
-	embedURL := processYouTubeURL(rawBody)
+	// 1. Read the optional YouTube link file
+	youtubeFilename := filepath.Join("pages", safeSlug+".youtube.txt")
+	youtubeURL, err := os.ReadFile(youtubeFilename)
+	var embedURL string
+	if err == nil { // File exists
+		embedURL = processYouTubeURL(string(youtubeURL))
+	}
 
 	// 2. Create a Page struct with the data
 	pageData := &Page{
 		Title:        safeSlug,
-		Body:         rawBody,
+		Body:         string(body),
 		YouTubeEmbed: embedURL, // Will be empty if no link is found
 		Year:         time.Now().Year(),
 	}

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -48,6 +50,9 @@ func main() {
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
+	// 5. The API endpoint to save a YouTube link for a page:
+	http.HandleFunc("/api/page/", youtubeSaveHandler)
+
 	// Start the server
 	log.Println("🚀 Starting server on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
@@ -80,4 +85,53 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error executing index template: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
+}
+
+// youtubeSaveHandler handles the POST request to save a YouTube link for a page.
+// The slug is extracted from the URL, e.g., /api/page/my-page/save-youtube
+func youtubeSaveHandler(w http.ResponseWriter, r *http.Request) {
+	// 1. We only accept POST requests
+	if r.Method != http.MethodPost {
+		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 2. Extract the page slug from the URL
+	// The path will be /api/page/my-page-slug/save-youtube
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 4 {
+		http.Error(w, "Invalid URL", http.StatusBadRequest)
+		return
+	}
+	slug := pathParts[3]
+
+	// 3. Decode the JSON request body: {"youtube_url": "https://..."}
+	var reqBody struct {
+		URL string `json:"youtube_url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	// 4. Basic validation: is it a real YouTube link?
+	// Our regex helper is perfect for this.
+	if processYouTubeURL(reqBody.URL) == "" {
+		http.Error(w, "Invalid YouTube URL", http.StatusBadRequest)
+		return
+	}
+
+	// 5. Save the URL to a file
+	filename := filepath.Join("pages", slug+".youtube.txt")
+	err := os.WriteFile(filename, []byte(reqBody.URL), 0644)
+	if err != nil {
+		log.Printf("Error writing YouTube link file: %v", err)
+		http.Error(w, "Could not save link", http.StatusInternalServerError)
+		return
+	}
+
+	// 6. Send a success response
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("YouTube link saved!"))
+	log.Printf("YouTube link saved for page: %s", slug)
 }
