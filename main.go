@@ -44,6 +44,10 @@ func main() {
 	// 3. The API endpoint to create a new page:
 	http.HandleFunc("/create", createPageHandler)
 
+	// 4. A file server to serve our static CSS file
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
 	// Start the server
 	log.Println("🚀 Starting server on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
