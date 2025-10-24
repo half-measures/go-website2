@@ -10,7 +10,7 @@
         a.home-link { display: inline-block; margin-top: 30px; text-decoration: none; color: #007bff; }
     </style>
 </head>
-<body>
+
     <h1>{{.Title}}</h1>
 
     <div class="content">
@@ -19,5 +19,13 @@
 
     <hr>
     <a href="/" class="home-link">[Back to Home]</a>
+
+<footer class="minimal-footer">
+        <p class="tagline">Because sometimes the trailer is better than the movie.</p>
+        <p class="copyright">
+            &copy; {{.Year}} TrailerHub | 
+            <a href="https://www.youtube.com/" target="_blank" aria-label="Find us on YouTube">YouTube Channel ▶️</a>
+        </p>
+    </footer>
 </body>
 </html>
