@@ -17,9 +17,16 @@ type Page struct {
 	Title        string
 	Body         string // The content of the page
 	Foot         string //unused
-	YouTubeEmbed []string
+	YouTubeEmbed []YouTubeVideo
 	Head         string
 	Year         int
+}
+
+// YouTubeVideo holds the data for a single YouTube video, including its vote count.
+type YouTubeVideo struct {
+	ID    string
+	URL   string
+	Votes int
 }
 
 // Global variable to cache all our templates
@@ -52,6 +59,9 @@ func main() {
 
 	// 5. The API endpoint to save a YouTube link for a page:
 	http.HandleFunc("/api/page/", youtubeSaveHandler)
+
+	// 6. The API endpoint for upvoting/downvoting a YouTube video:
+	http.HandleFunc("/api/vote/", youtubeVoteHandler)
 
 	// Start the server
 	log.Println("🚀 Starting server on http://localhost:8080")
@@ -87,6 +97,68 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// youtubeVoteHandler handles the POST request to upvote or downvote a YouTube video.
+// The URL format is /api/vote/{slug}/{videoID}/{action}
+func youtubeVoteHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 5 {
+		http.Error(w, "Invalid URL", http.StatusBadRequest)
+		return
+	}
+
+	slug := pathParts[2]
+	videoID := pathParts[3]
+	action := pathParts[4]
+
+	if action != "upvote" && action != "downvote" {
+		http.Error(w, "Invalid action", http.StatusBadRequest)
+		return
+	}
+
+	// Read the votes file
+	votesFilename := filepath.Join("pages", slug+".votes.json")
+	votes := make(map[string]int)
+
+	data, err := os.ReadFile(votesFilename)
+	if err == nil {
+		if err := json.Unmarshal(data, &votes); err != nil {
+			log.Printf("Error unmarshalling votes: %v", err)
+			http.Error(w, "Could not process votes", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Update the vote count
+	if action == "upvote" {
+		votes[videoID]++
+	} else {
+		votes[videoID]--
+	}
+
+	// Write the updated votes back to the file
+	updatedData, err := json.Marshal(votes)
+	if err != nil {
+		log.Printf("Error marshalling votes: %v", err)
+		http.Error(w, "Could not save vote", http.StatusInternalServerError)
+		return
+	}
+
+	if err := os.WriteFile(votesFilename, updatedData, 0644); err != nil {
+		log.Printf("Error writing votes file: %v", err)
+		http.Error(w, "Could not save vote", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Vote saved!"))
+	log.Printf("Vote saved for video %s on page %s", videoID, slug)
+}
+
 // youtubeSaveHandler handles the POST request to save a YouTube link for a page.
 // The slug is extracted from the URL, e.g., /api/page/my-page/save-youtube
 func youtubeSaveHandler(w http.ResponseWriter, r *http.Request) {
@@ -116,7 +188,8 @@ func youtubeSaveHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 4. Basic validation: is it a real YouTube link?
 	// Our regex helper is perfect for this.
-	if processYouTubeURL(reqBody.URL) == "" {
+	embedURL, _ := extractYouTubeVideoInfo(reqBody.URL)
+	if embedURL == "" {
 		http.Error(w, "Invalid YouTube URL", http.StatusBadRequest)
 		return
 	}
