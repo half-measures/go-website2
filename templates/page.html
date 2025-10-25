@@ -15,7 +15,12 @@
     {{if .YouTubeEmbed}}
         {{range .YouTubeEmbed}}
             <div class="youtube-embed">
-                <iframe width="560" height="315" src="{{.}}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                <iframe width="560" height="315" src="{{.URL}}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                <div class="vote-container">
+                    <button class="vote-btn" onclick="vote('{{$.Title}}', '{{.ID}}', 'upvote')">▲</button>
+                    <span class="vote-count" id="vote-count-{{.ID}}">{{.Votes}}</span>
+                    <button class="vote-btn" onclick="vote('{{$.Title}}', '{{.ID}}', 'downvote')">▼</button>
+                </div>
             </div>
         {{end}}
     {{end}}
@@ -26,6 +31,25 @@
     <a href="/" class="home-link">[Back to Home]</a>
 
     <script>
+        async function vote(slug, videoID, action) {
+            try {
+                const response = await fetch(`/api/vote/${slug}/${videoID}/${action}`, {
+                    method: 'POST',
+                });
+
+                if (response.ok) {
+                    // It worked! Reload the page to see the new vote count.
+                    window.location.reload();
+                } else {
+                    // Show an error if something went wrong
+                    alert("Error saving vote: " + await response.text());
+                }
+            } catch (err) {
+                console.error('Vote error:', err);
+                alert('A network error occurred. Check the console.');
+            }
+        }
+
         async function addYouTubeVideo(slug) {
             const url = prompt("Please enter the full YouTube video URL:");
 

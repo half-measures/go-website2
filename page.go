@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -102,22 +103,42 @@ func pageViewHandler(w http.ResponseWriter, r *http.Request) {
 	// 1. Read the optional YouTube link file
 	youtubeFilename := filepath.Join("pages", safeSlug+".youtube.txt")
 	youtubeURLs, err := os.ReadFile(youtubeFilename)
-	var embedURLs []string
+	var videos []YouTubeVideo
 	if err == nil { // File exists
 		// Split the file content by newline to get individual URLs
 		urls := strings.Split(string(youtubeURLs), "\n")
 		for _, url := range urls {
 			if url != "" { // Ignore empty lines
-				embedURLs = append(embedURLs, processYouTubeURL(url))
+				embedURL, videoID := extractYouTubeVideoInfo(url)
+				if videoID != "" {
+					videos = append(videos, YouTubeVideo{ID: videoID, URL: embedURL, Votes: 0})
+				}
 			}
 		}
 	}
+
+	// Read the votes file and apply votes to the videos
+	votesFilename := filepath.Join("pages", safeSlug+".votes.json")
+	votesData, err := os.ReadFile(votesFilename)
+	if err == nil {
+		var votes map[string]int
+		if err := json.Unmarshal(votesData, &votes); err == nil {
+			for i := range videos {
+				videos[i].Votes = votes[videos[i].ID]
+			}
+		}
+	}
+
+	// Sort videos by vote count in descending order
+	sort.Slice(videos, func(i, j int) bool {
+		return videos[i].Votes > videos[j].Votes
+	})
 
 	// 2. Create a Page struct with the data
 	pageData := &Page{
 		Title:        safeSlug,
 		Body:         string(body),
-		YouTubeEmbed: embedURLs, // Will be nil if no links are found
+		YouTubeEmbed: videos, // Will be nil if no links are found
 		Year:         time.Now().Year(),
 	}
 
