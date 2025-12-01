@@ -19,7 +19,7 @@ COPY . .
 RUN ls -la entrypoint.sh && sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
 # Build the application binary
-RUN go build -o /app/snippetbox ./cmd/web
+RUN go build -o /app/site ./cmd/web
 
 # Expose port 4000 to the outside world
 EXPOSE 4000

@@ -1,16 +1,30 @@
 version: '3.8'
-
 services:
-  mysql:
-    image: mysql:8.0
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: movie_trailers
-      MYSQL_USER: user
-      MYSQL_PASSWORD: password
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "3306:3306"
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
-      - ./mysql-data:/var/lib/mysql
+      - ./cmd/web/config.json:/app/cmd/web/config.json
+      - ./tls:/app/tls
+    restart: unless-stopped
 
-  # Add your Go app service here later (e.g., web server)
+  services:
+    mysql:
+      image: mysql:8.0
+      environment:
+        MYSQL_ROOT_PASSWORD: rootpass
+        MYSQL_DATABASE: movie_trailers
+        MYSQL_USER: user
+        MYSQL_PASSWORD: password
+      ports:
+        - "3306:3306"
+      volumes:
+        - ./mysql-data:/var/lib/mysql
+
+    # Add your Go app service here later (e.g., web server)
