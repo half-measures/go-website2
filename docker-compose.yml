@@ -14,17 +14,19 @@ services:
       - ./tls:/app/tls
     restart: unless-stopped
 
-  services:
-    mysql:
-      image: mysql:8.0
-      environment:
-        MYSQL_ROOT_PASSWORD: rootpass
-        MYSQL_DATABASE: movie_trailers
-        MYSQL_USER: user
-        MYSQL_PASSWORD: password
-      ports:
-        - "3306:3306"
-      volumes:
-        - ./mysql-data:/var/lib/mysql
-
-    # Add your Go app service here later (e.g., web server)
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: movie_trailers
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10

@@ -16,8 +16,6 @@ RUN go mod download
 # Copy the rest of the application source code from current Dir to /app in container
 COPY . .
 
-RUN ls -la entrypoint.sh && sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
-
 # Build the application binary
 RUN go build -o /app/site ./cmd/web
 
@@ -25,4 +23,4 @@ RUN go build -o /app/site ./cmd/web
 EXPOSE 4000
 
 # Set the entrypoint script which will start the application
-#ENTRYPOINT ["./entrypoint.sh"]
+CMD ["/app/site"]
