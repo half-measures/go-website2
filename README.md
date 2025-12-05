@@ -12,7 +12,7 @@ A web application that allows users to post YouTube links for movie trailers, vo
 ## Tech Stack
 - **Backend**: Go (Gin framework)
 - **Frontend**: HTML, CSS, JavaScript
-- **Database**: PostgreSQL or SQLite
+- **Database**: MYSQL
 
 ## Installation
 1. Clone the repository:
@@ -27,9 +27,9 @@ A web application that allows users to post YouTube links for movie trailers, vo
    ```bash
    go get ./...
    ```
-4. Set up database (example for PostgreSQL):
-   - Create a new database
-   - Update `config.yaml` with your credentials
+4. Set up database :
+   - DB is created via Docker - 'movie_trailers'
+   - migrate is used to create the correct schema via migrate -path db/migrations -database "mysql://root:secret@tcp(localhost:3306)/movie_trailers" up
 
 ## Usage
 1. Start the server:

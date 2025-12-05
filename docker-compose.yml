@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   app:
     build:
@@ -30,3 +29,24 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
       retries: 10
+#so as of now, db is working and good.
+#Can connect but on windows must use - docker exec -it my-movie-db mysql -u user -p 
+#where the 'my-movie-db part is the container name shown when you do docker ps
+#and then enter the password 'password' when prompted.
+
+#currently there is no schema set up
+#also to stop, docker compose down
+
+#To run the migration - migrate -path db/migrations -database "mysql://user:password@tcp(localhost:3306)/movie_trailers" up
+#down to downgrade it
+
+  migrate:
+      image: migrate/migrate
+      volumes:
+        - ./db/migrations:/migrations
+      command: ["-path", "/migrations", "-database", "mysql://user:password@tcp(db:3306)/movie_trailers", "up"]
+      depends_on:
+        - db
+
+volumes:
+  db_data:
