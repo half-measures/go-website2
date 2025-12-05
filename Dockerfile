@@ -17,7 +17,7 @@ RUN go mod download
 COPY . .
 
 # Build the application binary
-RUN go build -o /app/site ./cmd/web
+RUN go build -o /app/site .
 
 # Expose port 4000 to the outside world
 EXPOSE 4000

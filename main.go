@@ -1,15 +1,29 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	"go-trailer/models"
 	"html/template"
 	"log"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/mysql"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	_ "github.com/go-sql-driver/mysql"
 )
+
+// Application struct holds the application-wide dependencies.
+type Application struct {
+	DB       *sql.DB
+	Trailers *models.TrailerModel
+}
 
 // This struct will hold the data for a single page.
 // We'll pass this to the 'page.html' template.
@@ -34,44 +48,71 @@ var templates *template.Template
 
 // This regex is used to create a "slug" from a page title.
 // e.g., "My New Page" -> "my-new-page"
-var slugRegex = regexp.MustCompile("[^a-zA-Z0-9-]+")
+var slugRegex = regexp.MustCompile("[^a-zA-Z0--9-]+")
 
 func main() {
-	// Parse all templates in the 'templates' directory on startup.
-	// template.Must() will panic if it can't parse, which is fine for startup.
 	templates = template.Must(template.ParseGlob("templates/*.html"))
 
+	// Database connection
+	// In a real app, this should come from a config file or environment variables
+	dsn := "user:password@tcp(db:3306)/movie_trailers?parseTime=true"
+	db, err := openDB(dsn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// Run migrations
+	driver, err := mysql.WithInstance(db, &mysql.Config{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://db/migrations",
+		"mysql", driver)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatal(err)
+	}
+
+	app := &Application{
+		DB:       db,
+		Trailers: &models.TrailerModel{DB: db},
+	}
+
 	// --- Register our HTTP handlers ---
+	http.HandleFunc("/", app.indexHandler)
+	http.HandleFunc("/page/", app.pageViewHandler)
+	http.HandleFunc("/create", app.createPageHandler)
 
-	// 1. The Homepage:
-	http.HandleFunc("/", indexHandler)
-
-	// 2. The dynamic page viewer. Note the trailing slash!
-	// This tells the router to send all requests starting with /page/ to this handler.
-	http.HandleFunc("/page/", pageViewHandler)
-
-	// 3. The API endpoint to create a new page:
-	http.HandleFunc("/create", createPageHandler)
-
-	// 4. A file server to serve our static CSS file
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	// 5. The API endpoint to save a YouTube link for a page:
-	http.HandleFunc("/api/page/", youtubeSaveHandler)
-
-	// 6. The API endpoint for upvoting/downvoting a YouTube video:
-	http.HandleFunc("/api/vote/", youtubeVoteHandler)
+	http.HandleFunc("/api/page/", app.youtubeSaveHandler)
+	http.HandleFunc("/api/vote/", app.youtubeVoteHandler)
 
 	// Start the server
 	log.Println("🚀 Starting server on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
+func openDB(dsn string) (*sql.DB, error) {
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, err
+	}
+	if err = db.Ping(); err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
 // --- Handler Functions ---
 
 // indexHandler serves the homepage (index.html)
-func indexHandler(w http.ResponseWriter, r *http.Request) {
+func (app *Application) indexHandler(w http.ResponseWriter, r *http.Request) {
 	// We need to get a list of all pages to display
 	files, err := os.ReadDir("pages")
 	if err != nil {
@@ -97,9 +138,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// youtubeVoteHandler handles the POST request to upvote or downvote a YouTube video.
-// The URL format is /api/vote/{slug}/{videoID}/{action}
-func youtubeVoteHandler(w http.ResponseWriter, r *http.Request) {
+func (app *Application) youtubeVoteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
 		return
@@ -111,57 +150,57 @@ func youtubeVoteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slug := pathParts[2]
 	videoID := pathParts[3]
 	action := pathParts[4]
 
-	if action != "upvote" && action != "downvote" {
+	voteValue := 0
+	if action == "upvote" {
+		voteValue = 1
+	} else if action == "downvote" {
+		voteValue = -1
+	} else {
 		http.Error(w, "Invalid action", http.StatusBadRequest)
 		return
 	}
 
-	// Read the votes file
-	votesFilename := filepath.Join("pages", slug+".votes.json")
-	votes := make(map[string]int)
-
-	data, err := os.ReadFile(votesFilename)
-	if err == nil {
-		if err := json.Unmarshal(data, &votes); err != nil {
-			log.Printf("Error unmarshalling votes: %v", err)
-			http.Error(w, "Could not process votes", http.StatusInternalServerError)
+	// Get trailer ID from youtube_id
+	var trailerID int
+	err := app.DB.QueryRow("SELECT id FROM trailers WHERE youtube_id = ?", videoID).Scan(&trailerID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Trailer not found", http.StatusNotFound)
 			return
 		}
-	}
-
-	// Update the vote count
-	if action == "upvote" {
-		votes[videoID]++
-	} else {
-		votes[videoID]--
-	}
-
-	// Write the updated votes back to the file
-	updatedData, err := json.Marshal(votes)
-	if err != nil {
-		log.Printf("Error marshalling votes: %v", err)
-		http.Error(w, "Could not save vote", http.StatusInternalServerError)
+		log.Printf("Error finding trailer: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	if err := os.WriteFile(votesFilename, updatedData, 0644); err != nil {
-		log.Printf("Error writing votes file: %v", err)
+	ipAddress := getIP(r)
+
+	err = app.Trailers.Vote(trailerID, ipAddress, voteValue)
+	if err != nil {
+		log.Printf("Error saving vote: %v", err)
 		http.Error(w, "Could not save vote", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Vote saved!"))
-	log.Printf("Vote saved for video %s on page %s", videoID, slug)
+	log.Printf("Vote saved for video %s", videoID)
+}
+
+func getIP(r *http.Request) string {
+	forwarded := r.Header.Get("X-FORWARDED-FOR")
+	if forwarded != "" {
+		return forwarded
+	}
+	return r.RemoteAddr
 }
 
 // youtubeSaveHandler handles the POST request to save a YouTube link for a page.
 // The slug is extracted from the URL, e.g., /api/page/my-page/save-youtube
-func youtubeSaveHandler(w http.ResponseWriter, r *http.Request) {
+func (app *Application) youtubeSaveHandler(w http.ResponseWriter, r *http.Request) {
 	// 1. We only accept POST requests
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)

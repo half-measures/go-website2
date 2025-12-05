@@ -40,13 +40,5 @@ services:
 #To run the migration - migrate -path db/migrations -database "mysql://user:password@tcp(localhost:3306)/movie_trailers" up
 #down to downgrade it
 
-  migrate:
-      image: migrate/migrate
-      volumes:
-        - ./db/migrations:/migrations
-      command: ["-path", "/migrations", "-database", "mysql://user:password@tcp(db:3306)/movie_trailers", "up"]
-      depends_on:
-        - db
-
 volumes:
   db_data:
