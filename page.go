@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	"go-trailer/models"
 	"log"
 	"net/http"
 	"os"
@@ -70,6 +71,21 @@ func (app *application) createPageHandler(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Could not save page", http.StatusInternalServerError)
 		return
 	}
+
+	// 5. Create a new movie in the database
+	movie := &models.Movie{
+		Title:       reqBody.Name,
+		Slug:        slug,
+		ReleaseYear: time.Now().Year(),
+		Description: "A new movie page.",
+	}
+	id, err := app.trailerModel.InsertMovie(movie)
+	if err != nil {
+		log.Printf("Error inserting movie: %v", err)
+		http.Error(w, "Could not save page", http.StatusInternalServerError)
+		return
+	}
+	app.infoLog.Printf("New movie created with ID: %d", id)
 
 	log.Printf("New page created: %s", filename)
 

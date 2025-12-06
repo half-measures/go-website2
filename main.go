@@ -108,6 +108,7 @@ func main() {
 
 	// Start the server
 	log.Println("🚀 Starting server on http://localhost:8080")
+	app.infoLog.Println("Server starting...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -237,20 +238,26 @@ func (app *application) youtubeSaveHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// 5. Append the URL to the file, creating it if it doesn't exist.
-	filename := filepath.Join("pages", slug+".youtube.txt")
-	// Open the file in append mode, with create-if-not-exist flag
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// 5. Get the movie ID from the slug
+	movie, err := app.trailerModel.GetMovieBySlug(slug)
 	if err != nil {
-		log.Printf("Error opening YouTube link file: %v", err)
-		http.Error(w, "Could not save link", http.StatusInternalServerError)
+		log.Printf("Error getting movie by slug: %v", err)
+		http.Error(w, "Could not find movie", http.StatusInternalServerError)
 		return
 	}
-	defer f.Close()
 
-	// Write the new URL on its own line
-	if _, err := f.WriteString(reqBody.URL + "\n"); err != nil {
-		log.Printf("Error writing to YouTube link file: %v", err)
+	// 6. Create a new trailer
+	_, videoID := extractYouTubeVideoInfo(reqBody.URL)
+	trailer := &models.Trailer{
+		MovieID:   movie.ID,
+		Title:     "User Submitted Trailer", // You might want to get this from the request
+		YouTubeID: videoID,
+	}
+
+	// 7. Insert the new trailer into the database
+	_, err = app.trailerModel.InsertTrailer(trailer)
+	if err != nil {
+		log.Printf("Error inserting trailer: %v", err)
 		http.Error(w, "Could not save link", http.StatusInternalServerError)
 		return
 	}
