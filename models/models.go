@@ -84,3 +84,43 @@ func (m *TrailerModel) Vote(trailerID int, ipAddress string, voteValue int) erro
 	_, err := m.DB.Exec(stmt, trailerID, ipAddress, voteValue, voteValue)
 	return err
 }
+
+// InsertTrailer adds a new trailer to the database.
+func (m *TrailerModel) InsertTrailer(trailer *Trailer) (int, error) {
+	stmt := `INSERT INTO trailers (movie_id, title, youtube_id, created_at) VALUES (?, ?, ?, ?)`
+	result, err := m.DB.Exec(stmt, trailer.MovieID, trailer.Title, trailer.YouTubeID, time.Now())
+	if err != nil {
+		return 0, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return int(id), nil
+}
+
+// GetMovieBySlug fetches a movie by its slug.
+func (m *TrailerModel) GetMovieBySlug(slug string) (*Movie, error) {
+	stmt := `SELECT id, title, slug, release_year, description, created_at FROM movies WHERE slug = ?`
+	row := m.DB.QueryRow(stmt, slug)
+	movie := &Movie{}
+	err := row.Scan(&movie.ID, &movie.Title, &movie.Slug, &movie.ReleaseYear, &movie.Description, &movie.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return movie, nil
+}
+
+// InsertMovie adds a new movie to the database.
+func (m *TrailerModel) InsertMovie(movie *Movie) (int, error) {
+	stmt := `INSERT INTO movies (title, slug, release_year, description, created_at) VALUES (?, ?, ?, ?, ?)`
+	result, err := m.DB.Exec(stmt, movie.Title, movie.Slug, movie.ReleaseYear, movie.Description, time.Now())
+	if err != nil {
+		return 0, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return int(id), nil
+}
