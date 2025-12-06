@@ -14,7 +14,7 @@ import (
 )
 
 // createPageHandler handles the POST request to create a new page for the pages folder
-func (app *Application) createPageHandler(w http.ResponseWriter, r *http.Request) {
+func (app *application) createPageHandler(w http.ResponseWriter, r *http.Request) {
 
 	// We only accept POST requests here
 	if r.Method != http.MethodPost {
@@ -78,7 +78,7 @@ func (app *Application) createPageHandler(w http.ResponseWriter, r *http.Request
 }
 
 // pageViewHandler serves a single page (page.html)
-func (app *Application) pageViewHandler(w http.ResponseWriter, r *http.Request) {
+func (app *application) pageViewHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract the page title (slug) from the URL
 	// r.URL.Path will be "/page/my-new-page"
 	slug := r.URL.Path[len("/page/"):]
@@ -100,7 +100,7 @@ func (app *Application) pageViewHandler(w http.ResponseWriter, r *http.Request) 
 	// --- Render the page ---
 
 	// 1. Get trailers from the database
-	trailers, err := app.Trailers.GetTrailersByMovieSlug(safeSlug)
+	trailers, err := app.trailerModel.GetTrailersByMovieSlug(safeSlug)
 	if err != nil {
 		log.Printf("Error getting trailers: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
