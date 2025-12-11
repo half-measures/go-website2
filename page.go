@@ -5,17 +5,17 @@ package main
 
 import (
 	"encoding/json"
+	"go-trailer/models"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 )
 
 // createPageHandler handles the POST request to create a new page for the pages folder
-func createPageHandler(w http.ResponseWriter, r *http.Request) {
+func (app *application) createPageHandler(w http.ResponseWriter, r *http.Request) {
 
 	// We only accept POST requests here
 	if r.Method != http.MethodPost {
@@ -72,6 +72,21 @@ func createPageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 5. Create a new movie in the database
+	movie := &models.Movie{
+		Title:       reqBody.Name,
+		Slug:        slug,
+		ReleaseYear: time.Now().Year(),
+		Description: "A new movie page.",
+	}
+	id, err := app.trailerModel.InsertMovie(movie)
+	if err != nil {
+		log.Printf("Error inserting movie: %v", err)
+		http.Error(w, "Could not save page", http.StatusInternalServerError)
+		return
+	}
+	app.infoLog.Printf("New movie created with ID: %d", id)
+
 	log.Printf("New page created: %s", filename)
 
 	// 5. Redirect the user to their new page
@@ -79,7 +94,7 @@ func createPageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // pageViewHandler serves a single page (page.html)
-func pageViewHandler(w http.ResponseWriter, r *http.Request) {
+func (app *application) pageViewHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract the page title (slug) from the URL
 	// r.URL.Path will be "/page/my-new-page"
 	slug := r.URL.Path[len("/page/"):]
@@ -100,45 +115,29 @@ func pageViewHandler(w http.ResponseWriter, r *http.Request) {
 
 	// --- Render the page ---
 
-	// 1. Read the optional YouTube link file
-	youtubeFilename := filepath.Join("pages", safeSlug+".youtube.txt")
-	youtubeURLs, err := os.ReadFile(youtubeFilename)
+	// 1. Get trailers from the database
+	trailers, err := app.trailerModel.GetTrailersByMovieSlug(safeSlug)
+	if err != nil {
+		log.Printf("Error getting trailers: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// 2. Convert models.Trailer to YouTubeVideo
 	var videos []YouTubeVideo
-	if err == nil { // File exists
-		// Split the file content by newline to get individual URLs
-		urls := strings.Split(string(youtubeURLs), "\n")
-		for _, url := range urls {
-			if url != "" { // Ignore empty lines
-				embedURL, videoID := extractYouTubeVideoInfo(url)
-				if videoID != "" {
-					videos = append(videos, YouTubeVideo{ID: videoID, URL: embedURL, Votes: 0})
-				}
-			}
-		}
+	for _, t := range trailers {
+		videos = append(videos, YouTubeVideo{
+			ID:    t.YouTubeID,
+			URL:   "https://www.youtube.com/embed/" + t.YouTubeID,
+			Votes: t.Votes,
+		})
 	}
 
-	// Read the votes file and apply votes to the videos
-	votesFilename := filepath.Join("pages", safeSlug+".votes.json")
-	votesData, err := os.ReadFile(votesFilename)
-	if err == nil {
-		var votes map[string]int
-		if err := json.Unmarshal(votesData, &votes); err == nil {
-			for i := range videos {
-				videos[i].Votes = votes[videos[i].ID]
-			}
-		}
-	}
-
-	// Sort videos by vote count in descending order
-	sort.Slice(videos, func(i, j int) bool {
-		return videos[i].Votes > videos[j].Votes
-	})
-
-	// 2. Create a Page struct with the data
+	// 3. Create a Page struct with the data
 	pageData := &Page{
 		Title:        safeSlug,
 		Body:         string(body),
-		YouTubeEmbed: videos, // Will be nil if no links are found
+		YouTubeEmbed: videos,
 		Year:         time.Now().Year(),
 	}
 

@@ -2,3 +2,5 @@
 .DS_Store
 .idea/
 mysql-data/
+go-trailer
+pages/
